@@ -2,11 +2,25 @@
 applications:
 - name: n8n-workflow-app
   docker:
-    image: n8nio/n8n:1.106.3
+    image: docker.n8n.io/n8nio/n8n:latest
   memory: 2G
   disk_quota: 2G
   instances: 1
-  command: "sh -c 'export N8N_PORT=$PORT && tini -- /docker-entrypoint.sh start --tunnel'"
+  command: "sh -c 'export N8N_PORT=$PORT && export N8N_HOST=0.0.0.0 && export N8N_LISTEN_ADDRESS=0.0.0.0 && n8n start --tunnel'"
   health-check-type: process
+  timeout: 300
   env:
-    N8N_HOST: 0.0.0.0
+    N8N_PROTOCOL: https
+    N8N_DISABLE_UI: false
+    N8N_LOG_LEVEL: info
+    N8N_SECURE_COOKIE: false
+    NODE_ENV: production
+    DB_TYPE: sqlite
+    N8N_BASIC_AUTH_ACTIVE: false
+    N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: false
+    EXECUTIONS_PROCESS: main
+    N8N_METRICS: false
+    N8N_SKIP_WEBHOOK_DEREGISTRATION_SHUTDOWN: true
+    N8N_DEFAULT_BINARY_DATA_MODE: filesystem
+    DB_SQLITE_DATABASE: /home/node/n8n_data/database.sqlite
+    N8N_USER_FOLDER: /home/node/n8n_data
