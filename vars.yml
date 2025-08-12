@@ -1,0 +1,11 @@
+# n8n deployment variables for Cloud Foundry
+app-name: n8n-app
+docker-image: n8nio/n8n:latest
+memory: 2G
+disk-quota: 2G
+instances: 1
+landscape-domain: cfapps.us10-001.hana.ondemand.com
+db-service-name: n8n-db
+
+# Optional: Docker Hub credentials to avoid rate limiting
+# DOCKER_USERNAME: your-docker-username

@@ -1,0 +1,12 @@
+---
+applications:
+- name: n8n-workflow-app
+  docker:
+    image: n8nio/n8n:1.106.3
+  memory: 2G
+  disk_quota: 2G
+  instances: 1
+  command: "sh -c 'export N8N_PORT=$PORT && tini -- /docker-entrypoint.sh start --tunnel'"
+  health-check-type: process
+  env:
+    N8N_HOST: 0.0.0.0

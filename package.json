@@ -1,0 +1,11 @@
+{
+  "name": "n8n-cf-deployment",
+  "version": "1.0.0",
+  "description": "n8n deployment for Cloud Foundry",
+  "scripts": {
+    "start": "npx n8n@1.106.3 start"
+  },
+  "engines": {
+    "node": "20.x"
+  }
+}
