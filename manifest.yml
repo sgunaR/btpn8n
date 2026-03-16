@@ -1,28 +1,21 @@
 ---
 applications:
-- name: ((app-name))
+- name: n8n-appp
   docker:
-    image: ((docker-image))
-  memory: ((memory))
-  disk_quota: ((disk-quota))
-  instances: ((instances))
-  routes:
-  - route: ((app-name)).((landscape-domain))
+    image: docker.n8n.io/n8nio/n8n:1.106.3
+  command: >
+    node -e "const {spawn}=require('child_process');const v=JSON.parse(process.env.VCAP_SERVICES||'{}');const s=(Object.values(v).flatMap(a=>Array.isArray(a)?a:[]).find(x=>String(x?.label||'').toLowerCase().includes('postgres')||String(x?.name||'').toLowerCase().includes('postgres'))||{}).credentials||{};if(Object.keys(s).length){process.env.DB_TYPE='postgresdb';process.env.DB_POSTGRESDB_HOST=s.hostname||s.host||process.env.DB_POSTGRESDB_HOST;process.env.DB_POSTGRESDB_PORT=String(s.port||process.env.DB_POSTGRESDB_PORT||'');process.env.DB_POSTGRESDB_DATABASE=s.dbname||s.database||s.name||process.env.DB_POSTGRESDB_DATABASE;process.env.DB_POSTGRESDB_USER=s.username||s.user||process.env.DB_POSTGRESDB_USER;process.env.DB_POSTGRESDB_PASSWORD=s.password||process.env.DB_POSTGRESDB_PASSWORD;}process.env.N8N_PORT=process.env.PORT||process.env.N8N_PORT||'8080';process.env.N8N_LISTEN_ADDRESS='0.0.0.0';const p=spawn('n8n',['start'],{stdio:'inherit',env:process.env});p.on('exit',c=>process.exit(c));"
+  memory: 2G
+  disk_quota: 2G
+  instances: 1
+  random-route: true
   services:
-  - ((db-service-name))
+  - n8n-db
   env:
     NODE_ENV: production
     N8N_HOST: 0.0.0.0
-    N8N_PORT: 8080
+    N8N_LISTEN_ADDRESS: 0.0.0.0
     N8N_PROTOCOL: https
-    WEBHOOK_URL: https://((app-name)).((landscape-domain))
-    N8N_EDITOR_BASE_URL: https://((app-name)).((landscape-domain))
-    DB_TYPE: postgresdb
-    DB_POSTGRESDB_HOST: postgres-c6847c68-80a5-45f9-90f6-f8f46a8d9644.cqryblsdrbcs.us-east-1.rds.amazonaws.com
-    DB_POSTGRESDB_PORT: 1879
-    DB_POSTGRESDB_DATABASE: PqBXwqyUPPUm
-    DB_POSTGRESDB_USER: 6bf7126c8919
-    DB_POSTGRESDB_PASSWORD: 27055b8cdecaa64aa66764f18
     DB_POSTGRESDB_SSL: true
     DB_POSTGRESDB_SSL_REJECT_UNAUTHORIZED: false
     EXECUTIONS_PROCESS: main
@@ -32,3 +25,4 @@ applications:
     N8N_TEMPLATES_ENABLED: false
     N8N_ONBOARDING_FLOW_DISABLED: true
     N8N_PERSONALIZATION_ENABLED: false
+    N8N_LOG_LEVEL: info

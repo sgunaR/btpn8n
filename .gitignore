@@ -1,0 +1,11 @@
+# Local environment files
+.env
+.env.*
+!.env.example
+
+# Local secret variable files
+vars.secrets.yml
+*.secrets.local.yml
+
+# Cloud Foundry credential dumps
+cf-service-key-*.json

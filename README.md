@@ -1,339 +1,108 @@
-# n8n Workflow Automation on SAP BTP
+# n8n on SAP BTP Cloud Foundry
 
-A complete guide to deploy n8n workflow automation platform on SAP Business Technology Platform (BTP) with persistent PostgreSQL database storage.
+Minimal, secure deployment setup for n8n with PostgreSQL on Cloud Foundry.
 
-## 🚀 Overview
+## Repository contents
+- Cloud Foundry manifest template: manifest.yml
+- Scripts:
+  - scripts/cf-prepare-deploy.mjs
+  - scripts/pull-cf-secrets.mjs
 
-This project deploys the latest version of n8n (v1.106.3) on SAP BTP Cloud Foundry with enterprise-grade features:
+## End-to-end flow
+1. Clone repository
+2. Login to Cloud Foundry
+3. Create PostgreSQL service instance (if missing)
+4. Create temporary service key and extract credentials
+5. Optionally bind service to an existing app
+6. Deploy to Cloud Foundry
 
-- **Latest n8n Features**: Task runners, AI/LangChain integrations, advanced webhook handling
-- **Data Persistence**: PostgreSQL database for workflow and execution data
-- **Production Ready**: SSL/HTTPS, optimized memory allocation, secure configurations
-- **Cloud Native**: Containerized deployment with proper health checks
+## Prerequisites
+- CF CLI v8+ installed
+- Targeted org/space (`cf target`)
 
-## 📋 Prerequisites
-
-### 1. SAP BTP Account
-- SAP BTP trial or productive account
-- Cloud Foundry environment enabled
-- Minimum 4GB memory quota available
-
-### 2. Required Tools
-```bash
-# Install Cloud Foundry CLI
-# macOS
-brew install cloudfoundry/tap/cf-cli@8
-
-# Windows (using Chocolatey)
-choco install cloudfoundry-cli
-
-# Linux
-wget -q -O - https://packages.cloudfoundry.org/debian/cli.cloudfoundry.org.key | sudo apt-key add -
-echo "deb https://packages.cloudfoundry.org/debian stable main" | sudo tee /etc/apt/sources.list.d/cloudfoundry-cli.list
-sudo apt-get update && sudo apt-get install cf8-cli
-```
-
-### 3. Docker (Optional - for local testing)
-```bash
-# macOS
-brew install docker
-
-# Windows/Linux
-# Download from https://docs.docker.com/get-docker/
-```
-
-## 🛠 Setup Instructions
-
-### Step 1: Clone the Repository
-```bash
-git clone https://github.com/GunaSekhar8554/btpn8n.git
-cd btpn8n
-```
-
-### Step 2: Configure SAP BTP Access
-
-#### Login to Cloud Foundry
-```bash
-# Replace with your BTP region endpoint
-cf login -a https://api.cf.us10-001.hana.ondemand.com
-
-# Enter your BTP credentials when prompted
-# Email: your-email@domain.com
-# Password: your-password
-
-# Select your organization and space
-```
-
-#### Verify Your Environment
-```bash
-# Check available services
-cf marketplace
-
-# Check memory quota
-cf org-users YOUR_ORG_NAME
-cf space-users YOUR_SPACE_NAME
-```
-
-### Step 3: Create PostgreSQL Database Service
+## Quick start
+1. Login and target your CF org/space
 
 ```bash
-# Create PostgreSQL service instance
-cf create-service postgresql-db trial n8n-db
-
-# Wait for service creation (may take 5-10 minutes)
-cf services
-
-# Verify service is created successfully
-cf service n8n-db
+cf login --sso -a <api-endpoint>
+cf target -o <org> -s <space>
 ```
 
-### Step 4: Update Configuration
-
-#### Option A: Use Existing Configuration (Recommended)
-The repository includes pre-configured files:
-- `manifest-simple.yml` - Main deployment configuration
-- `vars.yml` - Environment variables
-
-#### Option B: Customize Configuration
-Edit `manifest-simple.yml` to customize:
-
-```yaml
-applications:
-- name: n8n-workflow-app
-  docker:
-    image: docker.n8n.io/n8nio/n8n:latest
-  memory: 2G  # Adjust based on your quota
-  disk_quota: 2G
-  instances: 1
-  command: "sh -c 'export N8N_PORT=$PORT && export N8N_HOST=0.0.0.0 && export N8N_LISTEN_ADDRESS=0.0.0.0 && n8n start'"
-  health-check-type: process
-  timeout: 300
-  services:
-  - n8n-db  # Must match your PostgreSQL service name
-  env:
-    # Database Configuration
-    DB_TYPE: postgresdb
-    DB_POSTGRESDB_HOST: YOUR_DB_HOST
-    DB_POSTGRESDB_PORT: YOUR_DB_PORT
-    DB_POSTGRESDB_DATABASE: YOUR_DB_NAME
-    DB_POSTGRESDB_USER: YOUR_DB_USER
-    DB_POSTGRESDB_PASSWORD: YOUR_DB_PASSWORD
-    DB_POSTGRESDB_SSL_ENABLED: true
-    DB_POSTGRESDB_SSL_REJECT_UNAUTHORIZED: false
-    
-    # n8n Configuration
-    N8N_PROTOCOL: https
-    N8N_DISABLE_UI: false
-    NODE_ENV: production
-    N8N_LOG_LEVEL: info
-    N8N_SECURE_COOKIE: false
-    N8N_BASIC_AUTH_ACTIVE: false
-    N8N_DEFAULT_BINARY_DATA_MODE: filesystem
-    N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: false
-```
-
-### Step 5: Deploy to SAP BTP
+2. Bootstrap and deploy
 
 ```bash
-# Deploy the application
-cf push -f manifest-simple.yml
-
-# Monitor deployment progress
-cf logs n8n-workflow-app --recent
+npm run cf:bootstrap
 ```
 
-### Step 6: Verify Deployment
+This runs:
+- `npm run cf:prepare`
+- `npm run cf:deploy`
 
+## What cf:prepare does
+- Ensures service instance `n8n-db` exists (creates if missing)
+- Waits until service is ready
+- Reads PostgreSQL credentials from bound app `VCAP_SERVICES` when available
+- Otherwise creates a temporary service key and reads credentials from it
+- Writes `vars.secrets.yml` for optional local/debug use
+- Deletes temporary service key (when one was created)
+
+Fresh clone behavior:
+- `npm run cf:bootstrap` works on first run after `cf login`.
+- Even if service-key creation is restricted, deploy can continue because runtime DB credentials come from bound `VCAP_SERVICES`.
+- Use strict mode only if you require local secrets file generation:
 ```bash
-# Check application status
-cf apps
-
-# Get application details
-cf app n8n-workflow-app
-
-# Check service binding
-cf env n8n-workflow-app
+node scripts/cf-prepare-deploy.mjs --service n8n-db --app n8n-appp --require-secrets
 ```
 
-## 🌐 Accessing n8n
+Default wait behavior:
+- Waits up to 15 minutes for PostgreSQL provisioning
+- Polls every 10 seconds
 
-Once deployed, access your n8n instance at:
-```
-https://YOUR_APP_NAME.cfapps.YOUR_REGION.hana.ondemand.com
-```
-
-Example: `https://n8n-workflow-app.cfapps.us10-001.hana.ondemand.com`
-
-## 🔧 Configuration Details
-
-### Environment Variables
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `DB_TYPE` | Database type | `postgresdb` |
-| `N8N_PROTOCOL` | Protocol for n8n | `https` |
-| `N8N_LOG_LEVEL` | Logging level | `info` |
-| `NODE_ENV` | Node environment | `production` |
-| `N8N_DISABLE_UI` | Disable web UI | `false` |
-
-### Database Configuration
-
-The PostgreSQL database is automatically configured through service binding. The following environment variables are set automatically:
-
-- `DB_POSTGRESDB_HOST` - Database hostname
-- `DB_POSTGRESDB_PORT` - Database port
-- `DB_POSTGRESDB_DATABASE` - Database name
-- `DB_POSTGRESDB_USER` - Database username
-- `DB_POSTGRESDB_PASSWORD` - Database password
-
-## 🐛 Troubleshooting
-
-### Common Issues
-
-#### 1. Application Won't Start
+You can override this if your foundation is slower:
 ```bash
-# Check logs for errors
-cf logs n8n-workflow-app --recent
-
-# Common solutions:
-# - Verify PostgreSQL service is running: cf service n8n-db
-# - Check memory allocation: cf app n8n-workflow-app
-# - Restart application: cf restart n8n-workflow-app
+node scripts/cf-prepare-deploy.mjs --service n8n-db --wait-minutes 30 --poll-seconds 15
 ```
 
-#### 2. Database Connection Issues
+## Deploy command used
 ```bash
-# Check service binding
-cf env n8n-workflow-app
-
-# Verify PostgreSQL credentials
-cf service-key n8n-db --create SERVICE_KEY_NAME
-cf service-key n8n-db SERVICE_KEY_NAME
+cf push -f manifest.yml
 ```
 
-#### 3. Memory Issues
+Database credential behavior:
+- Runtime DB credentials are sourced from bound `VCAP_SERVICES` in app startup.
+- This avoids per-account service-key credential mismatches during deploy.
+
+Route behavior:
+- `manifest.yml` uses `random-route: true` to avoid route collisions across accounts/spaces.
+- After deploy, get your URL with:
 ```bash
-# Check memory usage
-cf app n8n-workflow-app
-
-# Scale memory if needed
-cf scale n8n-workflow-app -m 4G
+cf app n8n-appp
 ```
 
-#### 4. SSL/HTTPS Issues
-Ensure your manifest includes:
-```yaml
-env:
-  N8N_PROTOCOL: https
-  N8N_SECURE_COOKIE: false
-  DB_POSTGRESDB_SSL_ENABLED: true
-```
-
-### Debugging Commands
-
+## Optional: bind service to an existing app
 ```bash
-# Real-time logs
-cf logs n8n-workflow-app
-
-# Application events
-cf events n8n-workflow-app
-
-# Service status
-cf services
-
-# Environment variables
-cf env n8n-workflow-app
-
-# Application health
-cf app n8n-workflow-app
+node scripts/cf-prepare-deploy.mjs --service n8n-db --bind-app <app-name>
+cf restage <app-name>
 ```
 
-## 🔄 Updates and Maintenance
+Note:
+During normal deploy, binding is handled by `services:` in `manifest.yml`.
 
-### Updating n8n Version
-
-1. **Update the Docker image** in `manifest-simple.yml`:
-```yaml
-docker:
-  image: docker.n8n.io/n8nio/n8n:latest  # or specific version like 1.106.3
-```
-
-2. **Deploy the update**:
+## Useful commands
 ```bash
-cf push -f manifest-simple.yml
+npm run cf:prepare
+npm run cf:deploy
+npm run secrets:pull -- --service n8n-db --out .env.cf
 ```
 
-3. **Verify the update**:
+## Security
+- No DB credentials in manifest.yml
+- vars.secrets.yml is generated locally and gitignored
+- Temporary service key is deleted automatically
+- .env.cf and local secret files remain gitignored
+
+## If your service name is different
 ```bash
-cf logs n8n-workflow-app --recent | grep "Version:"
+node scripts/cf-prepare-deploy.mjs --service <your-service-name> --offering postgresql-db --plan trial --secrets-file vars.secrets.yml
 ```
 
-### Scaling
-
-```bash
-# Scale memory
-cf scale n8n-workflow-app -m 4G
-
-# Scale instances (if needed)
-cf scale n8n-workflow-app -i 2
-
-# Scale disk
-cf scale n8n-workflow-app -k 4G
-```
-
-### Backup Considerations
-
-Your PostgreSQL database is managed by SAP BTP and includes:
-- Automatic backups
-- Point-in-time recovery
-- High availability
-
-For additional backup strategies, consider:
-- Exporting workflows via n8n UI
-- Database dumps using PostgreSQL tools
-- Version control for workflow definitions
-
-## 📚 Additional Resources
-
-### n8n Documentation
-- [Official n8n Documentation](https://docs.n8n.io/)
-- [n8n Workflow Examples](https://n8n.io/workflows/)
-- [n8n Community Forum](https://community.n8n.io/)
-
-### SAP BTP Resources
-- [SAP BTP Documentation](https://help.sap.com/viewer/product/BTP/)
-- [Cloud Foundry CLI Documentation](https://docs.cloudfoundry.org/cf-cli/)
-- [PostgreSQL on SAP BTP](https://help.sap.com/viewer/product/PostgreSQL/)
-
-### Docker Resources
-- [n8n Docker Hub](https://hub.docker.com/r/n8nio/n8n)
-- [Official n8n Docker Registry](https://docker.n8n.io/)
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature-name`
-3. Make your changes
-4. Test the deployment
-5. Submit a pull request
-
-## 📝 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🆘 Support
-
-If you encounter issues:
-
-1. Check the [Troubleshooting](#-troubleshooting) section
-2. Review the [SAP BTP documentation](https://help.sap.com/viewer/product/BTP/)
-3. Visit the [n8n community forum](https://community.n8n.io/)
-4. Create an issue in this repository
-
-## 🏷️ Tags
-
-`n8n` `sap-btp` `cloud-foundry` `workflow-automation` `postgresql` `docker` `enterprise` `no-code` `automation`
-
----
-
-**Happy Automating! 🚀**

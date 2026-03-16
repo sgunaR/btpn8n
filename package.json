@@ -3,7 +3,12 @@
   "version": "1.0.0",
   "description": "n8n deployment for Cloud Foundry",
   "scripts": {
-    "start": "npx n8n@1.106.3 start"
+    "start": "npx n8n@1.106.3 start",
+    "secrets:pull": "node scripts/pull-cf-secrets.mjs",
+    "secrets:pull:default": "node scripts/pull-cf-secrets.mjs --service n8n-db --out .env.cf",
+    "cf:prepare": "node scripts/cf-prepare-deploy.mjs --service n8n-db --offering postgresql-db --plan trial --secrets-file vars.secrets.yml --app n8n-appp",
+    "cf:deploy": "cf push -f manifest.yml",
+    "cf:bootstrap": "npm run cf:prepare && npm run cf:deploy"
   },
   "engines": {
     "node": "20.x"
